@@ -4,14 +4,26 @@ import cv2
 import numpy as np
 
 def diffImg(t0, t1, t2):
-  d1 = cv2.absdiff(t2, t1)
-  d2 = cv2.absdiff(t1, t0)
-  return cv2.bitwise_and(d1, d2)
+    d1 = cv2.absdiff(t2, t1)
+    d2 = cv2.absdiff(t1, t0)
+    return cv2.bitwise_and(d1, d2)
+
+def getParts(image, cascade):
+    parts = cascade.detectMultiScale(
+            image,
+            scaleFactor=1.3,
+            minNeighbors=3,
+            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
+    )
+    return parts
+
+def drawParts(parts, color, onImage):
+    for (x, y, w, h) in parts:
+        cv2.rectangle(onImage, (x, y), (x+w, y+h), color, 2)
 
 # Create windows
-cv2.namedWindow("diff", cv2.CV_WINDOW_AUTOSIZE)
-cv2.namedWindow("foreground", cv2.CV_WINDOW_AUTOSIZE)
-cv2.namedWindow("faces", cv2.CV_WINDOW_AUTOSIZE)
+cv2.namedWindow("diff", 0)
+cv2.namedWindow("faces", 0)
 
 # setup cascades
 path = "cascades/haarcascades/"
@@ -22,7 +34,6 @@ upperBodyCascade = cv2.CascadeClassifier(path + "haarcascade_upperbody.xml")
 lowerBodyCascade = cv2.CascadeClassifier(path + "haarcascade_lowerbody.xml")
 
 # instantiate useful classes
-detector = cv2.SimpleBlobDetector()
 bgs = cv2.BackgroundSubtractorMOG()
 
 #Load and prep bgs with 0-person control image
@@ -51,61 +62,32 @@ while i < 60:
         t = t_plus
         t_plus = gray
 
-                   
-        #Find Foreground - Potentially usable in counting number of people!
-        fgmask = bgs.apply(img, 0.05)
+        diff = None
+        if t_minus is not None and t is not None and t_plus is not None:
+            diff = diffImg(t_minus, t, t_plus)
 
-# TODO: make body parts sections into functions
 # TODO: find body part moving average over past 20 checks
-        #Find body parts
-        faces = faceCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=3,
-            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
-        )
-        profiles = profileCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=3,
-            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
-        )
-        lowerBodies = lowerBodyCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=3,
-            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
-        )
-        upperBodies = upperBodyCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=3,
-            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
-        )
-        
-        # Draw rectangles around the body parts
-        for (x, y, w, h) in upperBodies:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 255, 0), 2)
-        for (x, y, w, h) in lowerBodies:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 255), 2)
-        for (x, y, w, h) in faces:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        for (x, y, w, h) in profiles:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), 2)
+        if diff is not None:
+            #Find body parts
+            faces = getParts(diff, faceCascade)
+            profiles = getParts(diff, profileCascade)
+            fullBodies = getParts(diff, fullBodyCascade)
+            lowerBodies = getParts(diff, lowerBodyCascade)
+            upperBodies = getParts(diff, upperBodyCascade)
+            
+            # Draw rectangles around the body parts
+            drawParts(fullBodies, (255, 128, 128), diff)
+            drawParts(upperBodies, (255, 255, 0), diff)
+            drawParts(lowerBodies, (255, 0, 255), diff)
+            drawParts(faces, (0, 255, 0), diff)
+            drawParts(profiles, (0, 0, 255), diff)
 
-        print "Parts Found: " + str(len(upperBodies)) + ", " + str(len(lowerBodies))  + ", " + str(len(faces))  + ", " + str(len(profiles)) 
+            print "Parts Found: " + str(len(upperBodies)) + ", " + str(len(lowerBodies))  + ", " + str(len(faces))  + ", " + str(len(profiles))
 
         # Display the resulting images
-        
-        if t_minus is not None and t is not None and t_plus is not None:
-            #diff image with blob detection.
-#TODO: fix blob detection...
-            diff = diffImg(t_minus, t, t_plus)
-            keypoints = detector.detect(diff)
-            diff = cv2.drawKeypoints(diff, keypoints, np.array([]), (255,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            cv2.imshow("diff", diff)
+        if diff is not None:
+            cv2.imshow('diff', diff)
         cv2.imshow('faces', img)
-        cv2.imshow("foreground",fgmask)
         
         if cv2.waitKey(20000) & 0xFF == ord('q'):
             break
