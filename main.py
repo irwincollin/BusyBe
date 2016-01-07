@@ -3,12 +3,14 @@ import time
 import cv2
 import numpy as np
 
-def diffImg(t0, t1, t2):
+
+def diff_img(t0, t1, t2):
     d1 = cv2.absdiff(t2, t1)
     d2 = cv2.absdiff(t1, t0)
     return cv2.bitwise_and(d1, d2)
 
-def getParts(image, cascade):
+
+def get_parts(image, cascade):
     parts = cascade.detectMultiScale(
             image,
             scaleFactor=1.3,
@@ -17,9 +19,11 @@ def getParts(image, cascade):
     )
     return parts
 
-def drawParts(parts, color, onImage):
+
+def draw_parts(parts, color, onImage):
     for (x, y, w, h) in parts:
-        cv2.rectangle(onImage, (x, y), (x+w, y+h), color, 2)
+        cv2.rectangle(onImage, (x, y), (x + w, y + h), color, 2)
+
 
 # Create windows
 cv2.namedWindow("diff", 0)
@@ -36,6 +40,7 @@ lowerBodyCascade = cv2.CascadeClassifier(path + "haarcascade_lowerbody.xml")
 # instantiate useful classes
 detector = cv2.SimpleBlobDetector()
 
+# TODO: handle multiple cam feeds and place them in panes
 # Cam number and image path
 cam = "cam2"
 emptyCam = cv2.imread("control - uf rec/" + cam + "[3].jpg")
@@ -50,11 +55,11 @@ while i < 60:
     print "Downloading image number " + str(i);
     filename, header = urllib.urlretrieve("http://recsports.ufl.edu/cam/" + cam + ".jpg")
     img = cv2.imread(filename)
-    
+
     if img is not None:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         failures = 0
-        i = i + 1
+        i += 1
 
         # saving images to detect diff over time
         t_minus = t
@@ -63,38 +68,41 @@ while i < 60:
 
         diff = None
         if t_minus is not None and t is not None and t_plus is not None:
-            diff = diffImg(t_minus, t, t_plus)
-            ret,diff = cv2.threshold(diff,30,255,cv2.THRESH_BINARY)
+            diff = diff_img(t_minus, t, t_plus)
+            ret, diff = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
             keypoints = detector.detect(diff)
-            diff = cv2.drawKeypoints(diff, keypoints, np.array([]), (255,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            diff = cv2.drawKeypoints(diff, keypoints, np.array([]), (255, 255, 255),
+                                     cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-# TODO: find body part moving average over past 20 checks
-        #Find body parts
-        faces = getParts(img, faceCascade)
-        profiles = getParts(img, profileCascade)
-        fullBodies = getParts(img, fullBodyCascade)
-        lowerBodies = getParts(img, lowerBodyCascade)
-        upperBodies = getParts(img, upperBodyCascade)
-        
+        # TODO: find body part moving average over past 20 checks
+        # Find body parts
+        faces = get_parts(img, faceCascade)
+        profiles = get_parts(img, profileCascade)
+        fullBodies = get_parts(img, fullBodyCascade)
+        lowerBodies = get_parts(img, lowerBodyCascade)
+        upperBodies = get_parts(img, upperBodyCascade)
+
         # Draw rectangles around the body parts
-        drawParts(fullBodies, (255, 128, 128), img)
-        drawParts(upperBodies, (255, 255, 0), img)
-        drawParts(lowerBodies, (255, 0, 255), img)
-        drawParts(faces, (0, 255, 0), img)
-        drawParts(profiles, (0, 0, 255), img)
+        draw_parts(fullBodies, (255, 128, 128), img)
+        draw_parts(upperBodies, (255, 255, 0), img)
+        draw_parts(lowerBodies, (255, 0, 255), img)
+        draw_parts(faces, (0, 255, 0), img)
+        draw_parts(profiles, (0, 0, 255), img)
 
-        print "Parts Found: " + str(len(upperBodies)) + ", " + str(len(lowerBodies))  + ", " + str(len(faces))  + ", " + str(len(profiles))
+        print "Parts Found: " + str(len(upperBodies)) + ", " + str(len(lowerBodies)) + ", " + str(
+            len(faces)) + ", " + str(len(profiles))
 
+        # TODO: record some measure of activity based on the diff
         # Display the resulting images
         if diff is not None:
             cv2.imshow('diff', diff)
         cv2.imshow('faces', img)
-        
+
         if cv2.waitKey(20000) & 0xFF == ord('q'):
             break
     else:
         print "Failure #" + str(failures)
-        failures = failures + 1
+        failures += 1
         time.sleep(5)
         if failures > 120:
             print "10 minutes of failures! Program exiting"
