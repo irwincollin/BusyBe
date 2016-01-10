@@ -119,7 +119,8 @@ while 1:
 
         if t_minus[cam_num] is not None and t[cam_num] is not None and t_plus[cam_num] is not None:
             diff[cam_num] = diff_img(t_minus[cam_num], t[cam_num], t_plus[cam_num])
-            #ret, diff[cam_num] = cv2.threshold(diff[cam_num], 33, 255, cv2.THRESH_BINARY)
+            ret, diff[cam_num] = cv2.threshold(diff[cam_num], 40, 255, cv2.THRESH_BINARY)
+            # cv2.countNonZero can be used for counting number of white pixels potentially
 
         cam_num += 1
 
