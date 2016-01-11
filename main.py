@@ -1,4 +1,6 @@
 import time
+import datetime
+
 import urllib
 
 import itertools
@@ -132,12 +134,20 @@ while 1:
 
         image_row = [img[cam_num]]
         if diff[cam_num] is not None:
-            # TODO: record some measure of activity based on the diff
             image_row.append(cv2.cvtColor(diff[cam_num], cv2.COLOR_GRAY2RGB))
         image_rows.append(image_row)
 
     final_image = combine_image_rows(image_rows, 1400, 350, True)
     cv2.imshow('All Cameras', final_image)
+
+    # Record the diff amount for each cam
+    now = datetime.datetime.now()
+    nowStr = now.strftime("%Y-%m-%d %H:%M:%S")
+    # to read: dt.strptime(nowStr, "%Y-%m-%d %H:%M:%S")
+    for cam_num in range(len(cams)):
+        diffRating = cv2.countNonZero(diff[cam_num])
+        with open(cams[cam_num] + ".txt", "a") as camfile:
+            camfile.write(nowStr + "\n")
 
     if cv2.waitKey(20000) & 0xFF == ord('q'):
         pass
